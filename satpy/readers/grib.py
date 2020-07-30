@@ -30,8 +30,9 @@ from pyproj import Proj
 from pyresample import geometry
 from datetime import datetime
 
-from satpy import DatasetID, CHUNK_SIZE
+from satpy import CHUNK_SIZE
 from satpy.readers.file_handlers import BaseFileHandler
+from satpy.dataset import DataQuery
 import pygrib
 
 LOG = logging.getLogger(__name__)
@@ -43,8 +44,10 @@ CF_UNITS = {
 
 
 class GRIBFileHandler(BaseFileHandler):
+    """File handler for grib files."""
 
     def __init__(self, filename, filename_info, filetype_info):
+        """Init the file handler."""
         super(GRIBFileHandler, self).__init__(filename, filename_info, filetype_info)
 
         self._msg_datasets = {}
@@ -73,15 +76,18 @@ class GRIBFileHandler(BaseFileHandler):
     def _analyze_messages(self, grib_file):
         grib_file.seek(0)
         for idx, msg in enumerate(grib_file):
-            msg_id = DatasetID(name=msg['shortName'],
-                               level=msg['level'])
+            msg_id = DataQuery(name=msg['shortName'],
+                               level=msg['level'],
+                               typeOfLevel= msg['typeOfLevel'],
+                               modifiers=tuple())
             ds_info = {
                 'message': idx + 1,
                 'name': msg['shortName'],
                 'level': msg['level'],
                 'file_type': self.filetype_info['file_type'],
             }
-            self._msg_datasets[msg_id] = ds_info
+            if msg['shortName'] == 't':
+                self._msg_datasets[msg_id] = ds_info
 
     def _create_dataset_ids(self, keys):
         from itertools import product
@@ -90,7 +96,7 @@ class GRIBFileHandler(BaseFileHandler):
             id_keys = [keys[k]['id_key'] for k in ordered_keys]
             msg_info = dict(zip(ordered_keys, id_vals))
             ds_info = dict(zip(id_keys, id_vals))
-            msg_id = DatasetID(**ds_info)
+            msg_id = DataQuery(**ds_info)
             ds_info = msg_id.to_dict()
             ds_info.update(msg_info)
             ds_info['file_type'] = self.filetype_info['file_type']
@@ -120,7 +126,7 @@ class GRIBFileHandler(BaseFileHandler):
         return self._end_time
 
     def available_datasets(self, configured_datasets=None):
-        """Automatically determine datasets provided by this file"""
+        """Automatically determine datasets provided by this file."""
         # previously configured or provided datasets
         # we can't provide any additional information
         for is_avail, ds_info in (configured_datasets or []):
@@ -212,6 +218,10 @@ class GRIBFileHandler(BaseFileHandler):
         If latlong grid then convert to valid eqc grid.
 
         """
+        for msg in self._msg_datasets:
+            print(msg)
+        print("\n\n\n")
+        print(dsid)
         msg = self._get_message(self._msg_datasets[dsid])
         try:
             return self._area_def_from_msg(msg)
@@ -219,6 +229,7 @@ class GRIBFileHandler(BaseFileHandler):
             raise RuntimeError("Unknown GRIB projection information")
 
     def get_metadata(self, msg, ds_info):
+        """Get metadata."""
         model_time = self._convert_datetime(msg, 'dataDate',
                                             'dataTime')
         start_time = self._convert_datetime(msg, 'validityDate',
@@ -233,7 +244,6 @@ class GRIBFileHandler(BaseFileHandler):
             'shortName': msg['shortName'],
             'long_name': msg['name'],
             'pressureUnits': msg['pressureUnits'],
-            'typeOfLevel': msg['typeOfLevel'],
             'standard_name': msg['cfName'],
             'units': msg['units'],
             'modelName': msg['modelName'],
