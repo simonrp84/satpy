@@ -88,8 +88,7 @@ class GRIBFileHandler(BaseFileHandler):
                 'typeOfLevel': msg['typeOfLevel'],
                 'file_type': self.filetype_info['file_type'],
             }
-            if msg['shortName'] == 't':
-                self._msg_datasets[msg_id] = ds_info
+            self._msg_datasets[msg_id] = ds_info
 
     def _create_dataset_ids(self, keys):
         from itertools import product
