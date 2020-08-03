@@ -88,7 +88,8 @@ class GRIBFileHandler(BaseFileHandler):
                 'typeOfLevel': msg['typeOfLevel'],
                 'file_type': self.filetype_info['file_type'],
             }
-            self._msg_datasets[msg_id] = ds_info
+            if msg['shortName'] == 't':
+                self._msg_datasets[msg_id] = ds_info
 
     def _create_dataset_ids(self, keys):
         from itertools import product
@@ -219,6 +220,10 @@ class GRIBFileHandler(BaseFileHandler):
         If latlong grid then convert to valid eqc grid.
 
         """
+        for msg in self._msg_datasets:
+            print(msg)
+        print("\n\n\n")
+        print(dsid)
         msg = self._get_message(self._msg_datasets[dsid])
         try:
             return self._area_def_from_msg(msg)
