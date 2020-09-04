@@ -1,0 +1,16 @@
+reader:
+  name: gridrad
+  short_name: Gridrad radar
+  long_name: Gridded NOAA radar data (netCDF)
+  description: >
+    A reader for the gridrad product.
+    Gridrad is a gridded composite of radar observations from NOAA's WSR-88D
+    NEXRAD radar system
+
+    References:
+    - http://gridrad.org/
+    - Gridrad ATBD: http://gridrad.org/pdf/GridRad-v3.1-Algorithm-Description.pdf
+
+  sensors: [WSR-88D]
+  default_channels: []
+  reader: !!python/name:satpy.readers.yaml_reader.FileYAMLReader
