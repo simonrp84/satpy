@@ -465,12 +465,28 @@ composites:
       modifiers: [sunz_corrected]
     standard_name: hrv_severe_storms_masked
 
+  natural_with_airmass:
+    compositor: !!python/name:satpy.composites.DayNightCompositor
+    standard_name: natural_with_airmass
+    prerequisites:
+      - natural_color
+      - airmass
+    lim_low: 80
+    lim_high: 90
+
   natural_with_night_fog:
     compositor: !!python/name:satpy.composites.DayNightCompositor
     standard_name: natural_with_night_fog
     prerequisites:
       - natural_color
       - night_fog
+
+  natural_enh_with_night_ir:
+    compositor: !!python/name:satpy.composites.DayNightCompositor
+    standard_name: natural_color_with_night_ir
+    prerequisites:
+      - natural_enh
+      - night_ir_with_background
 
   natural_color_with_night_ir:
     compositor: !!python/name:satpy.composites.DayNightCompositor
