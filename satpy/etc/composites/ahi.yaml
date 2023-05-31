@@ -16,6 +16,11 @@ modifiers:
 
   analytic_rayleigh_corrected:
     modifier: !!python/name:satpy.modifiers.PACRayleighReflectance
+    atmosphere: us-standard
+    aerosol_type: rayleigh_only
+    prerequisites:
+    - name: B03
+      modifiers: [sunz_corrected]
     optional_prerequisites:
     - satellite_azimuth_angle
     - satellite_zenith_angle
@@ -88,6 +93,19 @@ composites:
     # what happens if something requests more modifiers on top of this?
     - wavelength: 0.51
       modifiers: [sunz_corrected, rayleigh_corrected]
+    - wavelength: 0.85
+      modifiers: [sunz_corrected]
+    standard_name: toa_bidirectional_reflectance
+
+  pac_hybrid_green:
+    compositor: !!python/name:satpy.composites.spectral.HybridGreen
+    # FUTURE: Set a wavelength...see what happens. Dependency finding
+    #         probably wouldn't work.
+    prerequisites:
+    # should we be using the most corrected or least corrected inputs?
+    # what happens if something requests more modifiers on top of this?
+    - wavelength: 0.51
+      modifiers: [sunz_corrected, analytic_rayleigh_corrected]
     - wavelength: 0.85
       modifiers: [sunz_corrected]
     standard_name: toa_bidirectional_reflectance
@@ -304,6 +322,17 @@ composites:
     - name: hybrid_green
     - name: B01
       modifiers: [sunz_corrected, rayleigh_corrected]
+    high_resolution_band: red
+    standard_name: true_color
+
+  pac_true_color:
+    compositor: !!python/name:satpy.composites.SelfSharpenedRGB
+    prerequisites:
+    - name: B03
+      modifiers: [sunz_corrected, analytic_rayleigh_corrected]
+    - name: pac_hybrid_green
+    - name: B01
+      modifiers: [sunz_corrected, analytic_rayleigh_corrected]
     high_resolution_band: red
     standard_name: true_color
 

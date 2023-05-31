@@ -123,7 +123,7 @@ class PSPRayleighReflectance(ModifierBase):
             refl_cor_band = corrector.reduce_rayleigh_highzenith(sunz, refl_cor_band,
                                                                  reduce_lim_low, reduce_lim_high, reduce_strength)
 
-        proj = vis - refl_cor_band
+        proj = (vis * 0) - refl_cor_band
         proj.attrs = vis.attrs
         self.apply_modifier_info(vis, proj)
         return proj
@@ -264,40 +264,26 @@ class PACRayleighReflectance(ModifierBase):
         suna = suna.data
         sunz = sunz.data
 
-        ssadiff = pacutils.calc_relazi(suna, sata)
+        # Set surface pressure, wavelength and latitude
+        pres = 1013.25
+        lat = 0
+
+        # Get central wavelength for channel and, if required, convert to nanometers.
+        wvl = vis.wavelength.central
+        if wvl < 100:
+            wvl = wvl * 1000
+
+        print(wvl)
+
+        cos_sza, cos_vza = pacutils.calc_cos_zens(sunz, satz)
+        ssadiff = compute_relative_azimuth(sata, suna)
+        tau_r = pacrayleigh.calc_rayleigh_optdepth(wvl, pres, lat=lat)
+        refl_cor_band = pacrayleigh.calc_rayleigh_contribution(tau_r, cos_sza, cos_vza, ssadiff)
         del sata, suna
 
-        atmosphere = self.attrs.get('atmosphere', 'us-standard')
-        aerosol_type = self.attrs.get('aerosol_type', 'marine_clean_aerosol')
-        reduce_lim_low = abs(self.attrs.get('reduce_lim_low', 70))
-        reduce_lim_high = abs(self.attrs.get('reduce_lim_high', 105))
-        reduce_strength = np.clip(self.attrs.get('reduce_strength', 0), 0, 1)
+        logger.info(f'Performing analytic Rayleigh correction for {pres} and {lat}')
 
-        logger.info("Removing Rayleigh scattering with atmosphere '%s' and "
-                    "aerosol type '%s' for '%s'",
-                    atmosphere, aerosol_type, vis.attrs['name'])
-        corrector = Rayleigh(vis.attrs['platform_name'], vis.attrs['sensor'],
-                             atmosphere=atmosphere,
-                             aerosol_type=aerosol_type)
-
-        try:
-            refl_cor_band = corrector.get_reflectance(sunz, satz, ssadiff,
-                                                      vis.attrs['name'],
-                                                      red.data)
-        except (KeyError, IOError):
-            logger.warning("Could not get the reflectance correction using band name: %s", vis.attrs['name'])
-            logger.warning("Will try use the wavelength, however, this may be ambiguous!")
-            refl_cor_band = corrector.get_reflectance(sunz, satz, ssadiff,
-                                                      vis.attrs['wavelength'][1],
-                                                      red.data)
-
-        if reduce_strength > 0:
-            if reduce_lim_low > reduce_lim_high:
-                reduce_lim_low = reduce_lim_high
-            refl_cor_band = corrector.reduce_rayleigh_highzenith(sunz, refl_cor_band,
-                                                                 reduce_lim_low, reduce_lim_high, reduce_strength)
-
-        proj = vis - refl_cor_band
+        proj = (vis * 0) - refl_cor_band
         proj.attrs = vis.attrs
         self.apply_modifier_info(vis, proj)
         return proj
