@@ -20,7 +20,7 @@ import warnings
 
 import dask.array as da
 
-from satpy.composites import GenericCompositor
+from satpy.composites import CompositeBase, GenericCompositor
 from satpy.dataset import combine_metadata
 
 LOG = logging.getLogger(__name__)
@@ -181,3 +181,168 @@ class GreenCorrector(SpectralBlender):
             stacklevel=2
         )
         super().__init__(fractions=fractions, *args, **kwargs)
+
+
+class FireMaskCompositor(CompositeBase):
+    """Do some stuff."""
+
+    @staticmethod
+    def _get_closest_ecm_run(curtime):
+        """ECMWF runs every 6 hours, find best match to current time."""
+        pass
+
+    @staticmethod
+    def _get_ecm_time_basetime(curtime):
+        """Find the closest 6-hour ECMWF forecast point.
+
+        Forecasts are generated for 00, 06, 12, 18 UTC, but are
+        only made available approximately 6 hours later.
+        """
+        from datetime import timedelta
+
+        hour = curtime.hour
+        rdate = curtime.replace(microsecond=0, second=0, minute=0)
+        btime = 0
+        if hour < 6:
+            rdate = (rdate - timedelta(days=1)).strftime("%Y-%m-%d")
+            btime = 18
+        elif hour < 12:
+            btime = 0
+        elif hour < 18:
+            btime = 6
+        elif hour < 24:
+            btime = 12
+
+        return rdate.replace(hour=btime)
+
+    @staticmethod
+    def _get_ecm_steptimes(curtime, reftime):
+        """Get step times from current time."""
+        from datetime import timedelta
+
+        tdelt = (curtime - reftime).total_seconds() / (60. * 60.)
+        if tdelt <= 3:
+            ptime = 0
+            ntime = 3
+        elif tdelt <= 6:
+            ptime = 3
+            ntime = 6
+        elif tdelt <= 9:
+            ptime = 6
+            ntime = 9
+        elif tdelt <= 12:
+            ptime = 9
+            ntime = 12
+        elif tdelt <= 15:
+            ptime = 12
+            ntime = 15
+        else:
+            raise ValueError(f"Time different between ECMWF steps too large: {tdelt}!")
+
+        # Total time between previous and next ecmwf timesteps (3 hours, in seconds)
+        tot_time = 3600 * 3
+        pdater = reftime + timedelta(hours=ptime)
+        pastime = (curtime - pdater).total_seconds()
+
+        n_frac = pastime / tot_time
+        p_frac = 1. - n_frac
+
+        return ptime, ntime, p_frac, n_frac
+
+    @staticmethod
+    def _read_gribs(prev_file, next_file, fracs, targ_area):
+        """Read skin temperature grib files and combine."""
+        # import numpy as np
+        import pygrib
+        import xarray as xr
+        from pyresample.geometry import SwathDefinition
+
+        # from pyresample.gradient import GradientSearchResampler
+        # Load skin temp from earlier file
+        grbs = pygrib.open(prev_file)
+        skt_p = grbs.select(name='Skin temperature')[0].values
+
+        # Load skin temp and lats / lons from next file (assumes lats / lons don't change).
+        grbs = pygrib.open(next_file)
+        grb = grbs.select(name='Skin temperature')[0]
+        skt_n = grb.values
+        lats, lons = grb.latlons()
+        lats = xr.DataArray(lats, dims=('y', 'x'))
+        lons = xr.DataArray(lons, dims=('y', 'x'))
+
+        # Create input grid definition
+        swath_def = SwathDefinition(lons=lons, lats=lats)
+
+        # Combine skin tempsto get temperature at image time.
+        skt_dt = (skt_p * fracs[0]) + (skt_n * fracs[1])
+
+        # Resample to target area
+        from pyresample import image
+        swath_con = image.ImageContainerBilinear(skt_dt, swath_def, radius_of_influence=50000)
+        area_con = swath_con.resample(targ_area)
+
+        # Convert to xarray
+        skt = xr.DataArray(area_con.image_data, dims=('y', 'x'))
+
+        return skt
+
+    def _dl_ecmwf(self, ref_time, ref_area, backup_temp):
+        """Download skin temperature data from ECMWF."""
+        import tempfile
+        from urllib.error import HTTPError
+
+        ecmtime = self._get_ecm_time_basetime(ref_time)
+        pstep, nstep, pfrac, nfrac = self._get_ecm_steptimes(ref_time, ecmtime)
+
+        try:
+            from ecmwf.opendata import Client
+            client = Client()
+            temp_dir = tempfile.TemporaryDirectory()
+
+            prev_f = f"{temp_dir.name}/previous.grib2"
+            next_f = f"{temp_dir.name}/next.grib2"
+
+            client.retrieve(date=ecmtime.strftime("%Y-%m-%d"), time=ecmtime.hour, step=pstep, type="fc",
+                            param="skt", target=prev_f)
+            client.retrieve(date=ecmtime.strftime("%Y-%m-%d"), time=ecmtime.hour, step=nstep, type="fc",
+                            param="skt", target=next_f)
+            res_skt = self._read_gribs(prev_f, next_f, (pfrac, nfrac), ref_area)
+
+        except ImportError:
+            print(f"Using default fire temperature, to use ECMWF data for fires composites requires the "
+                  f"ecmwf_opendata library: pip install ecmwf_opendata"
+                  f"Falling back to fixed temperature of {backup_temp}K")
+        except HTTPError:
+            logging.log("Warning: Fire composite requesting old data. ECMWF only holds most recent four days."
+                        f"Falling back to default fire temperature of {backup_temp}K")
+
+        return res_skt
+
+    def __call__(self, projectables, nonprojectables=None, **attrs):
+        """Generate the composite."""
+        # import numpy as np
+        # import scipy.ndimage
+
+        projectables = self.match_data_arrays(projectables)
+        info = combine_metadata(*projectables)
+        info['name'] = self.attrs['name']
+        info.update(self.attrs)  # attrs from YAML/__init__
+        info.update(attrs)  # overwriting of DataID properties
+
+        skt = self._dl_ecmwf(projectables[0].attrs['start_time'], projectables[0].attrs['area'], 283)
+
+        print(skt.shape)
+
+        # bob = df
+
+        # ir_105_temp = projectables[0] > 273
+        # print(np.nanmin(ir_105_temp), np.nanmax(ir_105_temp))
+        # temp_diff = projectables[1] - projectables[0] > 10
+        # ir38_plus_nir22 = projectables[1] + projectables[2] >= 300
+        # ir_38 = projectables[1] >= 310
+        # proj = ir_105_temp & temp_diff & ir38_plus_nir22
+        # tmp = scipy.ndimage.convolve(proj.astype(np.float32), np.ones((3, 3)), mode='constant')
+        # proj = np.logical_and(tmp >= 2, proj).astype(np.float32)
+        proj = skt
+        proj.attrs = info
+        return proj

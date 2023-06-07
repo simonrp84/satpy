@@ -56,6 +56,8 @@ class GRIBFileHandler(BaseFileHandler):
         self._start_time = None
         self._end_time = None
         try:
+            print(self.filename)
+            print(type(self.filename))
             with pygrib.open(self.filename) as grib_file:
                 first_msg = grib_file.message(1)
                 last_msg = grib_file.message(grib_file.messages)

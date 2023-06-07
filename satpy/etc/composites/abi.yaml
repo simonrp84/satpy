@@ -286,6 +286,15 @@ composites:
       - true_color
       - cira_fire_temperature
 
+  true_color_repr_with_night_fires:
+    compositor: !!python/name:satpy.composites.DayNightCompositor
+    standard_name: true_color_with_night_fires
+    prerequisites:
+      - true_color_reproduction
+      - cira_fire_temperature
+    lim_low: 85
+    lim_high: 90
+
   true_color_with_night_ir:
     compositor: !!python/name:satpy.composites.DayNightCompositor
     standard_name: true_color_with_night_ir
@@ -569,6 +578,16 @@ composites:
     standard_name: fire_temperature
     name: fire_temperature_awips
 
+
+
+  singlechan_fires:
+    description: >
+      A single channel fire composite using ~3.9 micron
+    compositor: !!python/name:satpy.composites.SingleChanFires
+    prerequisites:
+      - name: C07
+    standard_name: singlechan_fires
+
   land_cloud_fire:
     description: >
       Day Land Cloud Fire RGB, for GOESR: NASA, NOAA
@@ -736,3 +755,47 @@ composites:
       - name: green_nocorr
       - name: C01
     standard_name: true_color_reproduction_color_stretch
+
+  fire_mask:
+    # JMA True Color Reproduction uncorrected composite.
+    compositor: !!python/name:satpy.composites.spectral.FireMaskCompositor
+    standard_name: fire_mask
+    prerequisites:
+    - name: C13
+    - name: C07
+    - name: C06
+      modifiers: [sunz_corrected]
+
+  fire_temperature_sum:
+    standard_name: fire_temperature_sum
+    compositor: !!python/name:satpy.composites.SumCompositor
+    prerequisites:
+    - name: C07
+    - name: C06
+    modifiers: [sunz_corrected]
+
+  true_color_flames:
+    compositor: !!python/name:satpy.composites.BackgroundCompositor
+    standard_name: true_color_flames
+    prerequisites:
+    - fire_rgb_masked_alpha
+    - true_color_reproduction
+
+  fire_rgb_masked_alpha:
+    compositor: !!python/name:satpy.composites.MaskingCompositor
+    standard_name: fire_rgb_masked_alpha_col
+    conditions:
+    - method: less
+      value: 0.5
+      transparency: 100
+    - method: isnan
+      transparency: 100
+    prerequisites:
+    - name: fire_temperature_colorized
+    - name: fire_mask
+
+  fire_temperature_colorized:
+    standard_name: fire_temperature_colorized
+    compositor: !!python/name:satpy.composites.SingleBandCompositor
+    prerequisites:
+    - name: fire_temperature_sum

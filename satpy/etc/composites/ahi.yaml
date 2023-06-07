@@ -373,7 +373,7 @@ composites:
     lim_high: 88.
     prerequisites:
       - true_color_reproduction
-      - ir_cloud_day
+      - cloudtop
 
   true_color_reproduction:
     # JMA True Color Reproduction complete composite with corrected and uncorrected blend.
@@ -569,7 +569,7 @@ composites:
     compositor: !!python/name:satpy.composites.GenericCompositor
     standard_name: cloudtop
     prerequisites:
-      - name: B07
+      - name: B13
       - name: B14
       - name: B15
 

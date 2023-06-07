@@ -22,6 +22,7 @@ import logging
 import dask.array as da
 import numpy as np
 import xarray as xr
+from osgeo import gdal
 
 from satpy.modifiers import ModifierBase
 from satpy.modifiers._crefl import ReflectanceCorrector  # noqa
@@ -77,6 +78,7 @@ class PSPRayleighReflectance(ModifierBase):
         projectables = projectables + (optional_datasets or [])
         if len(projectables) != 6:
             vis, red = self.match_data_arrays(projectables)
+            red = red * 0.
             sata, satz, suna, sunz = get_angles(vis)
         else:
             vis, red, sata, satz, suna, sunz = self.match_data_arrays(projectables)
@@ -122,8 +124,13 @@ class PSPRayleighReflectance(ModifierBase):
                 reduce_lim_low = reduce_lim_high
             refl_cor_band = corrector.reduce_rayleigh_highzenith(sunz, refl_cor_band,
                                                                  reduce_lim_low, reduce_lim_high, reduce_strength)
+        drv = gdal.GetDriverByName("GTiff")
 
-        proj = (vis * 0) - refl_cor_band
+        outf = 'D:/sat_data/out/ORIG_'+vis.attrs['name']+'.tif'
+        ds = drv.Create(outf, refl_cor_band.shape[0], refl_cor_band.shape[1], 1, gdal.GDT_Float32)
+        ds.GetRasterBand(1).WriteArray(np.array(refl_cor_band))
+        del ds
+        proj = vis - refl_cor_band
         proj.attrs = vis.attrs
         self.apply_modifier_info(vis, proj)
         return proj
@@ -273,8 +280,6 @@ class PACRayleighReflectance(ModifierBase):
         if wvl < 100:
             wvl = wvl * 1000
 
-        print(wvl)
-
         cos_sza, cos_vza = pacutils.calc_cos_zens(sunz, satz)
         ssadiff = compute_relative_azimuth(sata, suna)
         tau_r = pacrayleigh.calc_rayleigh_optdepth(wvl, pres, lat=lat)
@@ -283,7 +288,15 @@ class PACRayleighReflectance(ModifierBase):
 
         logger.info(f'Performing analytic Rayleigh correction for {pres} and {lat}')
 
-        proj = (vis * 0) - refl_cor_band
+        print(wvl, tau_r)
+
+        outf = 'D:/sat_data/out/ANAL_'+vis.attrs['name']+'.tif'
+        drv = gdal.GetDriverByName("GTiff")
+        ds = drv.Create(outf, refl_cor_band.shape[0], refl_cor_band.shape[1], 1, gdal.GDT_Float32)
+        ds.GetRasterBand(1).WriteArray(np.array(refl_cor_band))
+        del ds
+
+        proj = vis - refl_cor_band
         proj.attrs = vis.attrs
         self.apply_modifier_info(vis, proj)
         return proj

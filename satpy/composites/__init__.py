@@ -1701,3 +1701,125 @@ class LongitudeMaskingCompositor(SingleBandCompositor):
 
         masked_projectable = projectable.where(lon_min_max)
         return super().__call__([masked_projectable], **info)
+
+
+class SingleChanFires(GenericCompositor):
+    """Create a fire RGB from a single channel, preferably 3.9 micron."""
+
+    @staticmethod
+    def _get_closest_ecm_run(curtime):
+        """ECMWF runs every 6 hours, find best match to current time."""
+
+    @staticmethod
+    def _get_ecm_time_basetime(curtime):
+        """Find the closest 6-hour ECMWF forecast point.
+
+        Forecasts are generated for 00, 06, 12, 18 UTC, but are
+        only made available approximately 6 hours later.
+        """
+        from datetime import timedelta
+
+        hour = curtime.hour
+        rdate = curtime.replace(microsecond=0, second=0, minute=0)
+        btime = 0
+        if hour < 6:
+            rdate = (rdate - timedelta(days=1)).strftime("%Y-%m-%d")
+            btime = 18
+        elif hour < 12:
+            btime = 0
+        elif hour < 18:
+            btime = 6
+        elif hour < 24:
+            btime = 12
+
+        return rdate.replace(hour=btime)
+
+    @staticmethod
+    def _get_ecm_steptimes(curtime, reftime):
+        """Get step times from current time."""
+        from datetime import timedelta
+
+        tdelt = (curtime - reftime).total_seconds() / (60. * 60.)
+        if tdelt <= 3:
+            ptime = 0
+            ntime = 3
+        elif tdelt <= 6:
+            ptime = 3
+            ntime = 6
+        elif tdelt <= 9:
+            ptime = 6
+            ntime = 9
+        elif tdelt <= 12:
+            ptime = 9
+            ntime = 12
+        elif tdelt <= 15:
+            ptime = 12
+            ntime = 15
+        else:
+            raise ValueError(f"Time different between ECMWF steps too large: {tdelt}!")
+
+        # Total time between previous and next ecmwf timesteps (3 hours, in seconds)
+        tot_time = 3600 * 3
+        pdater = reftime + timedelta(hours=ptime)
+        pastime = (curtime - pdater).total_seconds()
+
+        n_frac = pastime / tot_time
+        p_frac = 1. - n_frac
+
+        return ptime, ntime, p_frac, n_frac
+
+    def _dl_ecmwf(self, ref_time, ref_area, backup_temp):
+        """Download skin temperature data from ECMWF."""
+        # from urllib.error import HTTPError
+
+        ecmtime = self._get_ecm_time_basetime(ref_time)
+        pstep, nstep, pfrac, nfrac = self._get_ecm_steptimes(ref_time, ecmtime)
+        print(pstep, nstep)
+        print(pfrac, nfrac)
+
+        # try:
+        #    from ecmwf.opendata import Client
+
+        # client = Client()
+        # except ImportError:
+        #    print(f"Using default fire temperature, to use ECMWF data for fires composites requires the "
+        #          f"ecmwf_opendata library: pip install ecmwf_opendata"
+        #          f"Falling back to fixed temperature of {backup_temp}K")
+        # except HTTPError:
+        #    logging.log("Warning: Fire composite requesting old data. ECMWF only holds most recent four days."
+        #                f"Falling back to default fire temperature of {backup_temp}K")
+
+    def __call__(self, projectables, ref_t1=10, ref_t2=5, skin_t=None, backup_t=300, **kwargs):
+        """Generate the composite.
+
+        If skin_t is None then the composite will attempt to download skin temperature data from ECMWF.
+        ECMWF data is only available for the past ~4 days, so if the data is older than that, then the
+        backup temperature will be used instead.
+        """
+        projectables = self.match_data_arrays(projectables)
+        ref_chan = projectables[0]
+
+        self._dl_ecmwf(ref_chan.attrs['start_time'], ref_chan.attrs['area'], backup_t)
+        # bob = lkh
+
+        if skin_t is None:
+            min_t = self._dl_ecmwf(ref_chan.time, ref_chan.area, backup_t)
+
+        tdata_t1 = (ref_chan - min_t) - ref_t1
+        tdata_t2 = (ref_chan - min_t) - ref_t2
+        tdata_or = (ref_chan - min_t)
+
+        ch1 = xr.where(tdata_t1 < 0, 0, tdata_t1)
+        ch2 = xr.where(tdata_t2 < 0, 0, tdata_t2)
+        ch3 = xr.where(tdata_or < 0, 0, tdata_or)
+
+        ch1.attrs = ref_chan.attrs
+        ch2.attrs = ref_chan.attrs
+        ch3.attrs = ref_chan.attrs
+
+        print(ch1.attrs)
+
+        res = super(SingleChanFires, self).__call__((ch3, ch2, ch1),
+                                                    **kwargs)
+
+        return res
