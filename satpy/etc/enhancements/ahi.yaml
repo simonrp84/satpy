@@ -9,3 +9,29 @@ enhancements:
           stretch: crude
           min_stretch: [-26.2, -43.2, 243.9]
           max_stretch: [0.6, 6.7, 208.5]
+
+  true_color_flames:
+      standard_name: true_color_flames
+      operations: []
+
+  fire_rgb_masked_alpha_col:
+    standard_name: fire_rgb_masked_alpha_col
+    operations:
+      - name: colorize
+        method: !!python/name:satpy.enhancements.colorize
+        kwargs:
+          palettes:
+            - { colors: ylorrd, min_value: 330, max_value: 430 , reverse: true}
+
+  fire_temperature_colorized:
+    standard_name: fire_temperature_colorized
+    operations:
+      - name: colorize
+        method: !!python/name:satpy.enhancements.colorize
+        kwargs:
+          palettes:
+            - { colors: ylorrd, min_value: 330, max_value: 430 , reverse: true}
+
+  fci_fire_temperature_sum:
+    standard_name: fci_fire_temperature_sum
+    operations: []

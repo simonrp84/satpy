@@ -20,7 +20,7 @@ import warnings
 
 import dask.array as da
 
-from satpy.composites import GenericCompositor
+from satpy.composites import CompositeBase, GenericCompositor
 from satpy.dataset import combine_metadata
 
 LOG = logging.getLogger(__name__)
@@ -181,3 +181,86 @@ class GreenCorrector(SpectralBlender):
             stacklevel=2
         )
         super().__init__(fractions=fractions, *args, **kwargs)
+
+
+class FireRadianceMaskCompositor(CompositeBase):
+    """Create a fire mask using both radiance and brightness temperature information."""
+
+    def __init__(self, *args, **kwargs):
+        """Set up some initial thresholds."""
+        self.b13_bt_thresh = 273.
+        self.b13_mg_thresh = 1.1
+        self.sobel_mag_thresh = 1.
+        self.magdiv_thresh = 0.01
+        self.b02_thresh = 0.
+        self.b07_thresh = 0.05
+        self.b13_thresh = 0.
+
+        super().__init__(*args, **kwargs)
+
+    def __call__(self, projectables, nonprojectables=None, **attrs):
+        """Generate the composite."""
+        import numpy as np
+        from dask_image.ndfilters import uniform_filter
+        projectables = self.match_data_arrays(projectables)
+
+        info = combine_metadata(*projectables)
+        info['name'] = self.attrs['name']
+        info.update(self.attrs)  # attrs from YAML/__init__
+        info.update(attrs)  # overwriting of DataID properties
+
+        b02_rad = projectables[0].data
+        b07_rad = projectables[1].data
+        b13_rad = projectables[2].data
+        b13__bt = projectables[3].data
+
+        b02_rad_nonan = da.where(da.isfinite(b02_rad), b02_rad, 0)
+        b07_rad_nonan = da.where(da.isfinite(b07_rad), b07_rad, 0)
+        b13_rad_nonan = da.where(da.isfinite(b13_rad), b13_rad, 0)
+
+        b02_ave_5 = uniform_filter(b02_rad_nonan, 3)
+        b02_std_3 = self._std_convoluted_dask(b02_rad_nonan, 3)
+
+        b07_ave_5 = uniform_filter(b07_rad_nonan, 3)
+        b07_std_3 = self._std_convoluted_dask(b07_rad_nonan, 3)
+
+        b13_ave_5 = uniform_filter(b13_rad_nonan, 3)
+        b13_std_3 = self._std_convoluted_dask(b13_rad_nonan, 3)
+
+        b07_ave_5 = da.where(b13__bt > self.b13_bt_thresh, b07_ave_5, np.nan)
+        b07_std_3 = da.where(b13__bt > self.b13_bt_thresh, b07_std_3, np.nan)
+
+        b02_ave_5 = da.where(b13__bt > self.b13_bt_thresh, b02_ave_5, np.nan)
+        b02_std_3 = da.where(b13__bt > self.b13_bt_thresh, b02_std_3, np.nan)
+
+        b13_ave_5 = da.where(b13__bt > self.b13_bt_thresh, b13_ave_5, np.nan)
+        b13_std_3 = da.where(b13__bt > self.b13_bt_thresh, b13_std_3, np.nan)
+
+        b02_diff_5_3 = b02_rad_nonan - (b02_ave_5 + b02_std_3 + b02_std_3)
+        b07_diff_5_3 = b07_rad_nonan - (b07_ave_5 + b07_std_3 + b07_std_3)
+        b13_diff_5_3 = b13_rad_nonan - (b13_ave_5 + b13_std_3 + b13_std_3)
+
+        proj = projectables[0].copy()
+        proj[:, :] = 0
+        proj = proj + da.where(b02_diff_5_3 < self.b02_thresh, 1, 0)
+        proj = proj + da.where(b07_diff_5_3 > self.b07_thresh, 1, 0)
+        proj = proj + da.where(b13_diff_5_3 < self.b13_thresh, 1, 0)
+
+        proj.attrs = info
+
+        return proj
+
+    @staticmethod
+    def _std_convoluted_dask(image, n):
+        """Compute the local standard deviation of an image using a convolution."""
+        from dask_image.ndfilters import convolve
+        im = image
+        im2 = im ** 2
+        ones = da.ones(im.shape)
+
+        kernel = da.ones((2 * n + 1, 2 * n + 1))
+        s = convolve(im, kernel, mode="nearest")
+        s2 = convolve(im2, kernel, mode="nearest")
+        ns = convolve(ones, kernel, mode="nearest")
+
+        return da.sqrt((s2 - s ** 2 / ns) / ns)

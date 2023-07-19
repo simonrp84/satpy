@@ -499,3 +499,52 @@ composites:
     prerequisites:
       - night_ir_alpha
       - _night_background_hires
+
+  true_color_radflames:
+      compositor: !!python/name:satpy.composites.BackgroundCompositor
+      standard_name: true_color_flames
+      prerequisites:
+        - fire_rgb_masked_alpha
+        - true_color_reproduction
+
+  fire_rgb_masked_alpha:
+      compositor: !!python/name:satpy.composites.MaskingCompositor
+      standard_name: fire_rgb_masked_alpha_col
+      conditions:
+        - method: less
+          value: 0.5
+          transparency: 100
+        - method: isnan
+          transparency: 100
+      prerequisites:
+        # Composite
+        - name: fire_temperature_colorized
+        # Data used in masking
+        - name: fire_mask
+
+  fire_mask:
+    compositor: !!python/name:satpy.composites.spectral.FireRadianceMaskCompositor
+    standard_name: fire_mask
+    prerequisites:
+      - name: B02
+        calibration: radiance
+      - name: B07
+        calibration: radiance
+      - name: B13
+        calibration: radiance
+      - name: B13
+        calibration: brightness_temperature
+
+  fire_temperature_colorized:
+    standard_name: fire_temperature_colorized
+    compositor: !!python/name:satpy.composites.SingleBandCompositor
+    prerequisites:
+      - name: fire_temperature_sum
+
+  fire_temperature_sum:
+    standard_name: fire_temperature_sum
+    compositor: !!python/name:satpy.composites.SumCompositor
+    prerequisites:
+      - name: B07
+      - name: B06
+        modifiers: [ sunz_corrected ]
