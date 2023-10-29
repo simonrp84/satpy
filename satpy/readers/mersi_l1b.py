@@ -63,6 +63,7 @@ class MERSIL1B(HDF5FileHandler):
         sensor = {
             "MERSI": "mersi-2",
             "MERSI LL": "mersi-ll",
+            "MERSI RM": "mersi-rm",
         }.get(file_sensor, file_sensor)
         return sensor
 
@@ -104,8 +105,9 @@ class MERSIL1B(HDF5FileHandler):
         intercept = attrs.pop("Intercept", None)
         if slope is not None and dataset_id.get("calibration") != "counts":
             if band_index is not None:
-                slope = slope[band_index]
-                intercept = intercept[band_index]
+                if slope.ndim != 0:
+                    slope = slope[band_index]
+                    intercept = intercept[band_index]
             data = data * slope + intercept
 
         if dataset_id.get("calibration") == "reflectance":
