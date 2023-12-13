@@ -69,7 +69,7 @@ class FireRadiativePowerComposite(GenericCompositor):
 
     def __init__(self, name, do_load_lsm=True, **kwargs):
         """Collect custom configuration values."""
-        self.do_load_lsm = do_load_lsm
+        self.do_load_lsm = False#do_load_lsm
         super(FireRadiativePowerComposite, self).__init__(name, **kwargs)
 
 
@@ -95,7 +95,17 @@ class FireRadiativePowerComposite(GenericCompositor):
                             projectables[4],
                             band_dict, do_load_lsm=self.do_load_lsm)
 
-        fire_dets, frp_data = run_dets(data_dict)
-        frp_data.attrs = combine_metadata(*projectables)
 
-        return super().__call__((frp_data,), **attrs)
+        fire_dets, frp_data = run_dets(data_dict)
+
+        frp_out = projectables[0].copy()
+        frp_out.data = frp_data
+        frp_out.attrs["units"] = "MW"
+        frp_out.attrs["standard_name"] = "fire_radiative_power"
+        frp_out.attrs["long_name"] = "Fire Radiative Power"
+        frp_out.attrs["name"] = "frp"
+
+
+        frp_out.attrs = combine_metadata(*projectables)
+
+        return super().__call__((frp_out,), **attrs)
