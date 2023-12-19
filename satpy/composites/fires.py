@@ -75,8 +75,11 @@ class FireRadiativePowerComposite(GenericCompositor):
 
     def __call__(self, projectables, **attrs):
         """Generate the composite."""
-        from pyfires.PYF_basic import sort_l1
-        from pyfires.PYF_detection import run_dets
+        try:
+            from pyfires.PYF_basic import sort_l1
+            from pyfires.PYF_detection import run_dets
+        except ImportError:
+            raise ImportError("The `pyfires` library is required to run the FireRadiativePowerComposite composite.")
 
         projectables = self.match_data_arrays(projectables)
         # At least one composite is requested.
@@ -97,14 +100,12 @@ class FireRadiativePowerComposite(GenericCompositor):
 
 
         fire_dets, frp_data = run_dets(data_dict)
-
         frp_out = projectables[0].copy()
         frp_out.data = frp_data
         frp_out.attrs["units"] = "MW"
         frp_out.attrs["standard_name"] = "fire_radiative_power"
         frp_out.attrs["long_name"] = "Fire Radiative Power"
         frp_out.attrs["name"] = "frp"
-
 
         frp_out.attrs = combine_metadata(*projectables)
 
