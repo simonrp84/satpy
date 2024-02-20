@@ -129,7 +129,9 @@ datasets:
     wavelength: [3.710, 3.800, 3.890]
     resolution: 500
     file_type: mersi_rm_l1b_500
-    file_key: Data/EM_Emissive
+    file_key: Data/EV_Emissive
+    band_index: 0
+    calibration_index: 0
     coordinates: [longitude, latitude]
     calibration:
       brightness_temperature:
@@ -143,8 +145,9 @@ datasets:
     wavelength: [10.300, 10.800, 11.300]
     resolution: 500
     file_type: mersi_rm_l1b_500
-    file_key: Data/EM_Emissive
-    band_index: 2
+    file_key: Data/EV_Emissive
+    calibration_index: 0
+    band_index: 1
     coordinates: [longitude, latitude]
     calibration:
       brightness_temperature:
@@ -159,7 +162,8 @@ datasets:
     resolution: 500
     file_type: mersi_rm_l1b_500
     file_key: Data/EM_Emissive
-    band_index: 3
+    calibration_index: 0
+    band_index: 2
     coordinates: [longitude, latitude]
     calibration:
       brightness_temperature:
