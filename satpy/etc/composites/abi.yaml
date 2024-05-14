@@ -806,3 +806,69 @@ composites:
     prerequisites:
       - geo_color_high_clouds
       - geo_color_background_with_low_clouds
+
+  fire_radiative_power:
+    compositor: !!python/name:satpy.composites.fires.FireRadiativePowerComposite
+    standard_name: fire_radiative_power
+    prerequisites:
+      - name: C02
+        calibration: radiance
+      - name: C06
+        calibration: radiance
+      - name: C07
+        calibration: radiance
+      - name: C13
+        calibration: radiance
+      - name: C07
+        calibration: brightness_temperature
+      - name: C13
+        calibration: brightness_temperature
+      - land_water_mask
+
+  tcr_night_ir:
+    # JMA True Color Reproduction complete composite with corrected and uncorrected blend.
+    # http://www.jma.go.jp/jma/jma-eng/satellite/introduction/TCR.html
+    # Blended at night with the `cloudtop` composite.
+    compositor: !!python/name:satpy.composites.DayNightCompositor
+    lim_low: 84.
+    lim_high: 92.
+    prerequisites:
+      - true_color_reproduction
+      - cloudtop
+
+  true_color_flames:
+      compositor: !!python/name:satpy.composites.BackgroundCompositor
+      standard_name: true_color_flames
+      prerequisites:
+        - fire_rgb_masked_alpha
+        - tcr_night_ir
+
+  multi_fires:
+      compositor: !!python/name:satpy.composites.fires.MultiFireCompositor
+      standard_name: multi_fires
+      prerequisites:
+        - fire_radiative_power
+
+  fire_rgb_masked_alpha:
+      compositor: !!python/name:satpy.composites.MaskingCompositor
+      standard_name: fire_power_masked_alpha_col
+      conditions:
+        - method: isnan
+          transparency: 100
+        - method: less
+          value: 2
+          transparency: 100
+        - method: less
+          value: 70
+          transparency: 99
+        - method: less
+          value: 150
+          transparency: 90
+        - method: less
+          value: 220
+          transparency: 30
+      prerequisites:
+        # Composite
+        - name: multi_fires
+        # Data used in masking
+        - name: multi_fires

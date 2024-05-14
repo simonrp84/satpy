@@ -598,3 +598,66 @@ composites:
       - method: equal
         value: High_semitransparent_above_snow_ice
         transparency: 60
+
+  fire_radiative_power:
+    compositor: !!python/name:satpy.composites.fires.FireRadiativePowerComposite
+    standard_name: fire_radiative_power
+    prerequisites:
+      - name: VIS006
+        calibration: radiance
+      - name: IR_016
+        calibration: radiance
+      - name: IR_039
+        calibration: radiance
+      - name: IR_108
+        calibration: radiance
+      - name: IR_039
+        calibration: brightness_temperature
+      - name: IR_108
+        calibration: brightness_temperature
+
+
+  ncr_night_ir:
+    compositor: !!python/name:satpy.composites.DayNightCompositor
+    lim_low: 84.
+    lim_high: 92.
+    prerequisites:
+      - natural_color
+      - cloudtop
+
+  natural_color_flames:
+      compositor: !!python/name:satpy.composites.BackgroundCompositor
+      standard_name: true_color_flames
+      prerequisites:
+        - fire_rgb_masked_alpha
+        - ncr_night_ir
+
+  multi_fires:
+      compositor: !!python/name:satpy.composites.fires.MultiFireCompositor
+      standard_name: multi_fires
+      prerequisites:
+        - fire_radiative_power
+
+  fire_rgb_masked_alpha:
+      compositor: !!python/name:satpy.composites.MaskingCompositor
+      standard_name: fire_power_masked_alpha_col
+      conditions:
+        - method: isnan
+          transparency: 100
+        - method: less
+          value: 2
+          transparency: 100
+        - method: less
+          value: 70
+          transparency: 99
+        - method: less
+          value: 150
+          transparency: 90
+        - method: less
+          value: 220
+          transparency: 30
+      prerequisites:
+        # Composite
+        - name: multi_fires
+        # Data used in masking
+        - name: multi_fires
