@@ -322,3 +322,13 @@ composites:
       - name: ndvi_hybrid_green_raw
       - name: VI004
     standard_name: true_color_reproduction_color_stretch
+
+  true_color_reproduction_night_ir:
+    # JMA True Color Reproduction complete composite with corrected and uncorrected blend.
+    # http://www.jma.go.jp/jma/jma-eng/satellite/introduction/TCR.html
+    compositor: !!python/name:satpy.composites.DayNightCompositor
+    lim_low: 83.
+    lim_high: 88.
+    prerequisites:
+      - true_color_reproduction
+      - ir_cloud_day
