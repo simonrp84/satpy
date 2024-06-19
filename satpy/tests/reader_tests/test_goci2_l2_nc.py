@@ -15,23 +15,26 @@
 #
 # You should have received a copy of the GNU General Public License along with
 # satpy.  If not, see <http://www.gnu.org/licenses/>.
+
 """Module for testing the satpy.readers.goci2_l2_nc module."""
-from datetime import datetime
+
+import datetime as dt
 
 import numpy as np
 import pytest
 import xarray as xr
-from pytest_lazyfixture import lazy_fixture
+from pytest_lazy_fixtures import lf as lazy_fixture
 
 from satpy import Scene
+from satpy.tests.utils import RANDOM_GEN
 
 # NOTE:
 # The following fixtures are not defined in this file, but are used and injected by Pytest:
 # - tmp_path_factory
 
 
-start_time = datetime(2024, 2, 14, 2, 32, 27)
-end_time = datetime(2024, 2, 14, 2, 33, 31)
+start_time = dt.datetime(2024, 2, 14, 2, 32, 27)
+end_time = dt.datetime(2024, 2, 14, 2, 33, 31)
 
 global_attrs = {
     "observation_start_time": start_time.strftime("%Y%m%d_%H%M%S"),
@@ -78,7 +81,7 @@ def _create_bad_lon_lat():
 @pytest.fixture(scope="session")
 def ac_file(tmp_path_factory):
     """Create a fake atmospheric correction product."""
-    data = np.random.random((10, 10))
+    data = RANDOM_GEN.random((10, 10))
     RhoC = xr.Dataset(
         {"RhoC_555": (["number_of_lines", "pixels_per_line"], data)},
         coords={"number_of_lines": np.arange(10), "pixels_per_line": np.arange(10)},
@@ -102,7 +105,7 @@ def ac_file(tmp_path_factory):
 @pytest.fixture(scope="module")
 def iop_file(tmp_path_factory):
     """Create a fake IOP product."""
-    data = np.random.random((10, 10))
+    data = RANDOM_GEN.random((10, 10))
     a = xr.Dataset(
         {"a_total_555": (["number_of_lines", "pixels_per_line"], data)},
         coords={"number_of_lines": np.arange(10), "pixels_per_line": np.arange(10)},
@@ -124,7 +127,7 @@ def iop_file(tmp_path_factory):
 @pytest.fixture(scope="module")
 def generic_file(tmp_path_factory):
     """Create a fake ouput product like Chl, Zsd etc."""
-    data = np.random.random((10, 10))
+    data = RANDOM_GEN.random((10, 10))
     geophysical_data = xr.Dataset(
         {"Chl": (["number_of_lines", "pixels_per_line"], data)},
         coords={"number_of_lines": np.arange(10), "pixels_per_line": np.arange(10)},
@@ -141,7 +144,7 @@ def generic_file(tmp_path_factory):
 @pytest.fixture(scope="module")
 def generic_bad_file(tmp_path_factory):
     """Create a PP product with lon/lat base name missing."""
-    data = np.random.random((10, 10))
+    data = RANDOM_GEN.random((10, 10))
     geophysical_data = xr.Dataset(
         {"PP": (["number_of_lines", "pixels_per_line"], data)},
         coords={"number_of_lines": np.arange(10), "pixels_per_line": np.arange(10)},

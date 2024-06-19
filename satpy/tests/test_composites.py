@@ -15,11 +15,12 @@
 #
 # You should have received a copy of the GNU General Public License along with
 # satpy.  If not, see <http://www.gnu.org/licenses/>.
+
 """Tests for compositors in composites/__init__.py."""
 
+import datetime as dt
 import os
 import unittest
-from datetime import datetime
 from unittest import mock
 
 import dask
@@ -30,7 +31,7 @@ import xarray as xr
 from pyresample import AreaDefinition
 
 import satpy
-from satpy.tests.utils import CustomScheduler
+from satpy.tests.utils import RANDOM_GEN, CustomScheduler
 
 # NOTE:
 # The following fixtures are not defined in this file, but are used and injected by Pytest:
@@ -175,7 +176,7 @@ class TestRatioSharpenedCompositors:
                               {"proj": "merc"}, 2, 2,
                               (-2000, -2000, 2000, 2000))
         attrs = {"area": area,
-                 "start_time": datetime(2018, 1, 1, 18),
+                 "start_time": dt.datetime(2018, 1, 1, 18),
                  "modifiers": tuple(),
                  "resolution": 1000,
                  "calibration": "reflectance",
@@ -347,7 +348,7 @@ class TestDifferenceCompositor(unittest.TestCase):
                               {"proj": "merc"}, 2, 2,
                               (-2000, -2000, 2000, 2000))
         attrs = {"area": area,
-                 "start_time": datetime(2018, 1, 1, 18),
+                 "start_time": dt.datetime(2018, 1, 1, 18),
                  "modifiers": tuple(),
                  "resolution": 1000,
                  "name": "test_vis"}
@@ -430,7 +431,7 @@ class TestDayNightCompositor(unittest.TestCase):
     def setUp(self):
         """Create test data."""
         bands = ["R", "G", "B"]
-        start_time = datetime(2018, 1, 1, 18, 0, 0)
+        start_time = dt.datetime(2018, 1, 1, 18, 0, 0)
 
         # RGB
         a = np.zeros((3, 2, 2), dtype=np.float32)
@@ -701,10 +702,10 @@ class TestSandwichCompositor:
         """Test luminance sharpening compositor."""
         from satpy.composites import SandwichCompositor
 
-        rgb_arr = da.from_array(np.random.random(input_shape), chunks=2)
+        rgb_arr = da.from_array(RANDOM_GEN.random(input_shape), chunks=2)
         rgb = xr.DataArray(rgb_arr, dims=["bands", "y", "x"],
                            coords={"bands": bands})
-        lum_arr = da.from_array(100 * np.random.random((2, 2)), chunks=2)
+        lum_arr = da.from_array(100 * RANDOM_GEN.random((2, 2)), chunks=2)
         lum = xr.DataArray(lum_arr, dims=["y", "x"])
 
         # Make enhance2dataset return unmodified dataset
