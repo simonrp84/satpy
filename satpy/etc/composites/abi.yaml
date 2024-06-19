@@ -823,7 +823,13 @@ composites:
         calibration: brightness_temperature
       - name: C13
         calibration: brightness_temperature
-      - land_water_mask
+      - land_water_mask_frp
+
+  land_water_mask_frp:
+      compositor: !!python/name:satpy.composites.StaticImageCompositor
+      standard_name: land_water_mask_frp
+      url: "https://gws-access.jasmin.ac.uk/public/rsg_share/transfer/cloud_cci/GOES_M0754_LSM.tif"
+      known_hash: "sha256:586ba44cce2faf86add765aef00d55aa1feef80be1d3d5f3539f82ad4cdb990c"
 
   tcr_night_ir:
     # JMA True Color Reproduction complete composite with corrected and uncorrected blend.
