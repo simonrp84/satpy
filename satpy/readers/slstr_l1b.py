@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# Copyright (c) 2016-2020 Satpy developers
+# Copyright (c) 2016-2024 Satpy developers
 #
 # This file is part of satpy.
 #
@@ -36,11 +36,12 @@ logger = logging.getLogger(__name__)
 CHUNK_SIZE = get_legacy_chunk_size()
 
 PLATFORM_NAMES = {"S3A": "Sentinel-3A",
-                  "S3B": "Sentinel-3B"}
+                  "S3B": "Sentinel-3B",
+                  }
 
 # These are the default channel adjustment factors.
-# Defined in the product notice: S3.PN-SLSTR-L1.08
-# https://sentinel.esa.int/documents/247904/2731673/Sentinel-3A-and-3B-SLSTR-Product-Notice-Level-1B-SL-1-RBT-at-NRT-and-NTC.pdf
+# Defined in the product notice: S3.PN-SLSTR-L1.11
+# https://sentinels.copernicus.eu/documents/d/sentinel/s3-pn-slstr-l1-11-i1r0-slstr-l1-pb-sl__l1_-004-07-00
 CHANCALIB_FACTORS = {"S1_nadir": 0.97,
                      "S2_nadir": 0.98,
                      "S3_nadir": 0.98,
@@ -107,10 +108,10 @@ class NCSLSTRGeo(BaseFileHandler):
 class NCSLSTR1B(BaseFileHandler):
     """Filehandler for l1 SLSTR data.
 
-    By default, the calibration factors recommended by EUMETSAT are applied.
-    This is required as the SLSTR VIS channels are producing slightly incorrect
-    radiances that require adjustment.
-    Satpy uses the radiance corrections in S3.PN-SLSTR-L1.08, checked 11/03/2022.
+    By default, the calibration factors recommended by the mission performance centre
+    are applied. This is required as the SLSTR VIS channels are producing slightly
+    incorrect radiances that require adjustment.
+    Satpy uses the radiance corrections in S3.PN-SLSTR-L1.11, checked 19/12/2024.
     User-supplied coefficients can be passed via the `user_calibration` kwarg
     This should be a dict of channel names (such as `S1_nadir`, `S8_oblique`).
 
